@@ -1,26 +1,29 @@
 'use server'
 
-import { UploadFileProps } from "@/types"
 import { createAdminClient } from "../appwrite"
-import {InputFile} from 'node-appwrite/file'
+import { InputFile } from 'node-appwrite/file'
 import { appwriteConfig } from "../appwrite/config"
 import { ID } from "node-appwrite"
-import { constructFileUrl, getFileType, parseStringify } from ".."
-import { error } from "console"
-import { revalidatePath } from "next/cache"
+import { constructFileUrl, getFileType } from ".."
+
+interface UploadFileProps {
+    file: File;
+    ownerId: string;
+    accountId: string;
+    path: string;
+}
 
 const handleError = (error: unknown, message: string) => {
     console.log(error, message);
     throw error;
 }
 
-
-export const uploadFile = async ({file, ownerId, accountId, path}: UploadFileProps) => {
-    const {databases, storage} = await createAdminClient();
+export const uploadFile = async ({ file, ownerId, accountId, path }: UploadFileProps) => {
+    const { databases, storage } = await createAdminClient();
 
     try {
         const inputFile = InputFile.fromBuffer(file, file.name);
-        const bucketFile = await storage.createFile(appwriteConfig.bucketId, ID.unique(), inputFile,);
+        const bucketFile = await storage.createFile(appwriteConfig.bucketId, ID.unique(), inputFile);
         const fileDocument = {
             type: getFileType(bucketFile.name).type,
             name: bucketFile.name,
@@ -36,14 +39,10 @@ export const uploadFile = async ({file, ownerId, accountId, path}: UploadFilePro
             appwriteConfig.databaseId,
             appwriteConfig.filesCollectionId,
             ID.unique(),
-            fileDocument,
-        ).catch(async(error: unknown) => {
-            await storage.deleteFile(appwriteConfig.bucketId, bucketFile.$id);
-            handleError(error, 'Failed to create file');
-        });
-        revalidatePath(path);
-        return parseStringify(newFile);
+            fileDocument
+        );
+        return newFile;
     } catch (error) {
-        handleError(error, 'Error Uploading File');
+        handleError(error, "Failed to upload file");
     }
-}
+};
